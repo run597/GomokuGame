@@ -202,6 +202,20 @@ public class HelloApplication extends Application {
         return boardPane;
     }
 
+    private void reset() {
+        isBLACK = true;
+        Arrays.stream(board).forEach(row -> Arrays.fill(row, MyColor.NOCOLOR));
+        lastPos = null;
+        canUndo = false;
+        canRedo = false;
+        maxX = 0;
+        minX = BOARD_SIZE;
+        maxY = 0;
+        minY = BOARD_SIZE;
+        drawBoard();
+        GomokuGameState.deleteSave();
+    }
+
     private VBox getSettingBox() {
         VBox currentUserVBox = new VBox(10);
         currentUserVBox.setPadding(new Insets(10));
@@ -227,9 +241,8 @@ public class HelloApplication extends Application {
             }
         });
         Button resetButton = new Button("重置");
-        saveButton.setOnAction(e -> {
-            Arrays.stream(board).forEach(row -> Arrays.fill(row, MyColor.NOCOLOR));
-            lastPos = null;
+        resetButton.setOnAction(e -> {
+            reset();
         });
         redoButton = new Button("悔棋");
         redoButton.setOnAction(e -> {
@@ -259,7 +272,7 @@ public class HelloApplication extends Application {
             }
         });
         undoButton.setDisable(true);
-        hBox.getChildren().addAll(saveButton, redoButton, undoButton);
+        hBox.getChildren().addAll(saveButton, resetButton, redoButton, undoButton);
 
         // 将黑方和白方设置框放在一个HBox中
         VBox settingsBox = new VBox(30);
@@ -275,9 +288,7 @@ public class HelloApplication extends Application {
             boolean result = checkWin(circle.getX(), circle.getY(), circle.getColor());
             if (result) {
                 showAlert("win", (isBLACK ? blackName : whiteName) + "win");
-                Arrays.stream(board).forEach(row -> Arrays.fill(row, MyColor.NOCOLOR));
-                isBLACK = true;
-                drawBoard();
+                reset();
             } else {
                 isBLACK = !isBLACK;
                 circle.toFront();
