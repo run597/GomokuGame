@@ -102,7 +102,7 @@ public class GomokuGameState implements Serializable {
         MyColor[][] board = new MyColor[15][15];
         Arrays.stream(board).forEach(row -> Arrays.fill(row, MyColor.NOCOLOR));
 
-        GomokuGameState state = new GomokuGameState(15, board, "黑方", "白方", true, new Pair<>(1,1));
+        GomokuGameState state = new GomokuGameState(15, board, "黑方", "白方", true, new Pair<>(1, 1));
         try {
             state.saveToFile();
         } catch (IOException e) {

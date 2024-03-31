@@ -21,7 +21,7 @@ public class HelloApplication extends Application {
     private boolean isBLACK = true;
     private int BOARD_SIZE = 15;
     private BorderPane pane;
-    private Pair<Integer,Integer> lastPos = null;
+    private Pair<Integer, Integer> lastPos = null;
     private MyColor[][] board = new MyColor[BOARD_SIZE][BOARD_SIZE];
     private String blackName = "黑方";
     private String whiteName = "白方";
@@ -30,6 +30,11 @@ public class HelloApplication extends Application {
     private int minX = BOARD_SIZE;
     private int maxY = 0;
     private int minY = BOARD_SIZE;
+    private boolean canRedo = false;
+    private boolean canUndo = false;
+    private Button redoButton = null;
+    private Button undoButton = null;
+
 
     @Override
     public void start(Stage primaryStage) {
@@ -119,11 +124,11 @@ public class HelloApplication extends Application {
                         int minBoardSize = Math.max(width, height);
                         if (newBoardSize != BOARD_SIZE && newBoardSize >= minBoardSize && newBoardSize >= 5) {
                             MyColor[][] newBoard = new MyColor[newBoardSize][newBoardSize];
-                            int middle =  newBoardSize / 2;
+                            int middle = newBoardSize / 2;
                             int startX = middle - (maxX - minX + 1) / 2;
                             int startY = middle - (maxY - minY + 1) / 2;
                             Arrays.stream(newBoard).forEach(row -> Arrays.fill(row, MyColor.NOCOLOR));
-                            for (int i = 0; i <= maxX - minX ; i++) {
+                            for (int i = 0; i <= maxX - minX; i++) {
                                 for (int j = 0; j <= maxY - minY; j++) {
                                     newBoard[startX + i][startY + j] = board[i + minX][j + minY];
                                 }
@@ -163,12 +168,12 @@ public class HelloApplication extends Application {
         pane.setRight(settingBox);
     }
 
-    private Pane getBoardPane (double boardSize) {
+    private Pane getBoardPane(double boardSize) {
         Pane boardPane = new Pane();
         double cellSize = boardSize / (BOARD_SIZE + 1);
 
         boardPane.getChildren().clear();
-        boardPane.setBackground(new Background(new BackgroundFill(Color.BISQUE,null,null)));
+        boardPane.setBackground(new Background(new BackgroundFill(Color.BISQUE, null, null)));
         for (int i = 0; i < BOARD_SIZE; i++) {
             Line colline = new Line(cellSize * (i + 1), cellSize, cellSize * (i + 1), boardSize - cellSize);
             Line rowline = new Line(cellSize, cellSize * (i + 1), boardSize - cellSize, cellSize * (i + 1));
@@ -178,10 +183,10 @@ public class HelloApplication extends Application {
         }
         for (int i = 0; i < BOARD_SIZE; i++) {
             for (int j = 0; j < BOARD_SIZE; j++) {
-                MyCircle circle = new MyCircle( i, j, cellSize * (j + 1), cellSize * (i + 1), 0.33 * cellSize);
+                MyCircle circle = new MyCircle(i, j, cellSize * (j + 1), cellSize * (i + 1), 0.33 * cellSize);
                 if (board[i][j] == MyColor.NOCOLOR) {
                     circle.setFill(Color.TRANSPARENT);
-                } else if(board[i][j] == MyColor.BLACK) {
+                } else if (board[i][j] == MyColor.BLACK) {
                     circle.setFill(Color.BLACK);
                     circle.setColor(MyColor.BLACK);
                 } else {
@@ -213,23 +218,47 @@ public class HelloApplication extends Application {
         saveButton.setOnAction(e -> {
             GomokuGameState state = new GomokuGameState(BOARD_SIZE, board, blackName, whiteName, isBLACK, lastPos);
             try {
-                state.saveToFile();
+                if (lastPos != null) {
+                    state.saveToFile();
+                }
             } catch (IOException ex) {
                 System.out.println("save failed");
                 throw new RuntimeException(ex);
             }
         });
-        Button redoButton = new Button("悔棋");
+        Button resetButton = new Button("重置");
+        saveButton.setOnAction(e -> {
+            Arrays.stream(board).forEach(row -> Arrays.fill(row, MyColor.NOCOLOR));
+            lastPos = null;
+        });
+        redoButton = new Button("悔棋");
         redoButton.setOnAction(e -> {
-            GomokuGameState state = new GomokuGameState(BOARD_SIZE, board, blackName, whiteName, isBLACK, lastPos);
-            try {
-                state.saveToFile();
-            } catch (IOException ex) {
-                System.out.println("save failed");
-                throw new RuntimeException(ex);
+            if (canRedo) {
+                board[lastPos.getKey()][lastPos.getValue()] = MyColor.NOCOLOR;
+                isBLACK = !isBLACK;
+                currentUserLable.setText("当前用户：" + (isBLACK ? blackName : whiteName));
+                canRedo = false;
+                canUndo = true;
+                redoButton.setDisable(canUndo);
+                undoButton.setDisable(canRedo);
+                drawBoard();
             }
         });
-        Button undoButton = new Button("撤销悔棋");
+        redoButton.setDisable(true);
+        undoButton = new Button("撤销悔棋");
+        undoButton.setOnAction(e -> {
+            if (canUndo) {
+                board[lastPos.getKey()][lastPos.getValue()] = isBLACK ? MyColor.BLACK : MyColor.WHITE;
+                isBLACK = !isBLACK;
+                currentUserLable.setText("当前用户：" + (isBLACK ? blackName : whiteName));
+                canRedo = true;
+                canUndo = false;
+                redoButton.setDisable(canUndo);
+                undoButton.setDisable(canRedo);
+                drawBoard();
+            }
+        });
+        undoButton.setDisable(true);
         hBox.getChildren().addAll(saveButton, redoButton, undoButton);
 
         // 将黑方和白方设置框放在一个HBox中
@@ -245,7 +274,7 @@ public class HelloApplication extends Application {
             board[circle.getX()][circle.getY()] = isBLACK ? MyColor.BLACK : MyColor.WHITE;
             boolean result = checkWin(circle.getX(), circle.getY(), circle.getColor());
             if (result) {
-                showAlert("win","win");
+                showAlert("win", (isBLACK ? blackName : whiteName) + "win");
                 Arrays.stream(board).forEach(row -> Arrays.fill(row, MyColor.NOCOLOR));
                 isBLACK = true;
                 drawBoard();
@@ -258,6 +287,9 @@ public class HelloApplication extends Application {
                 minX = Math.min(minX, circle.getX());
                 maxY = Math.max(maxY, circle.getY());
                 minY = Math.min(minY, circle.getY());
+                canRedo = true;
+                redoButton.setDisable(false);
+                undoButton.setDisable(true);
             }
         }
     }
